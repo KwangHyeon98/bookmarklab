@@ -389,6 +389,36 @@
     .sheet-error { color: #c8271b; min-height: 20px; margin-bottom: var(--s-xs); }
     .sheet-actions { display: flex; justify-content: flex-end; gap: var(--s-xs); margin-top: var(--s-xs); }
 
+    /* 자주 사용 선택 목록 — 기존 사이트 중에서 고른다 */
+    .pick-list {
+      max-height: min(52vh, 440px); overflow-y: auto;
+      margin: 0 calc(-1 * var(--s-xs)); padding: 0 var(--s-xs);
+    }
+    .pick-group { color: var(--ink-muted-48); margin: var(--s-md) 0 var(--s-xs); }
+    .pick-group:first-child { margin-top: 0; }
+    .pick-row {
+      display: flex; align-items: center; gap: var(--s-sm);
+      padding: 10px 12px; margin-bottom: 6px;
+      border: 1px solid var(--hairline); border-radius: var(--r-md, 11px);
+      cursor: pointer; transition: border-color 0.15s ease, background 0.15s ease;
+    }
+    .pick-row:has(input:checked) { border-color: var(--primary-focus); background: rgba(0, 102, 204, 0.05); }
+    .pick-row input { width: 18px; height: 18px; margin: 0; accent-color: var(--primary); flex: none; }
+    .pick-logo {
+      width: 32px; height: 32px; border-radius: var(--r-sm); background: var(--canvas-parchment);
+      display: grid; place-items: center; overflow: hidden; flex: none;
+    }
+    .pick-logo img { width: 20px; height: 20px; object-fit: contain; }
+    .pick-logo .initial {
+      display: none; width: 20px; height: 20px; border-radius: 50%; background: var(--primary); color: var(--on-primary);
+      font-size: 11px; font-weight: 600; line-height: 20px; text-align: center; letter-spacing: 0;
+    }
+    .pick-logo.fallback img { display: none; }
+    .pick-logo.fallback .initial { display: block; }
+    .pick-name { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+    .pick-name .caption { color: var(--ink-muted-48); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .pick-empty { color: var(--ink-muted-48); text-align: center; padding: var(--s-lg) 0; }
+
     /* ==========================================================
        Responsive
        ========================================================== */
@@ -493,6 +523,20 @@
       <div class="sheet-actions">
         <button class="btn-ghost" type="button" id="addCancel">취소</button>
         <button class="btn-primary" type="submit" id="addSubmit">추가</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- ===== 자주 사용 등록 다이얼로그 — 기존 사이트 중에서 선택 ===== -->
+  <dialog class="sheet" id="starDialog" aria-labelledby="starTitle">
+    <form method="dialog" id="starForm" novalidate>
+      <h2 class="tagline" id="starTitle">자주 사용 사이트 등록</h2>
+      <p class="caption sheet-sub">각 섹션에 등록된 사이트 중에서 홈에 표시할 사이트를 고르세요. 여러 개 선택 가능.</p>
+      <div class="pick-list" id="pickList"></div>
+      <p class="caption sheet-error" id="starError" aria-live="polite"></p>
+      <div class="sheet-actions">
+        <button class="btn-ghost" type="button" id="starCancel">취소</button>
+        <button class="btn-primary" type="submit" id="starSubmit">등록</button>
       </div>
     </form>
   </dialog>
@@ -603,10 +647,14 @@
       plus:  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>`,
     };
 
-    function siteCardHTML(site) {
+    // hero(홈) 카드의 × 는 사이트 삭제가 아니라 "자주 사용 해제" — 사이트는 원래 카테고리에 남는다.
+    function siteCardHTML(site, hero = false) {
       const badge = site.star ? `<span class="card-badge caption-strong">자주 사용</span>` : '';
+      const delLabel = hero ? '자주 사용 해제' : '삭제';
+      const confirmMsg = hero ? '자주 사용에서 해제할까요?<br><span class="caption">사이트는 섹션에 그대로 남습니다.</span>' : '목록에서 삭제할까요?';
+      const confirmBtn = hero ? '해제' : '삭제';
       return `
-        <div class="card" data-url="${esc(site.url)}" data-cat="${esc(site.catId)}">
+        <div class="card" data-url="${esc(site.url)}" data-cat="${esc(site.catId)}" ${hero ? 'data-unstar="1"' : ''}>
           <a class="card-main" href="${esc(site.url)}" target="_blank" rel="noopener noreferrer" draggable="false" aria-label="${esc(site.name)} — ${esc(site.desc)} (새 탭)">
             <div class="card-logo">
               <img src="${esc(faviconUrl(site.url))}" alt="" loading="lazy" width="36" height="36" draggable="false"
@@ -617,31 +665,33 @@
             <p class="card-desc caption">${esc(site.desc)}</p>
             <span class="card-link caption">바로가기</span>
           </a>
-          <button class="card-del" type="button" aria-label="${esc(site.name)} 삭제">${ICON.close}</button>
+          <button class="card-del" type="button" aria-label="${esc(site.name)} ${delLabel}">${ICON.close}</button>
           <div class="card-confirm" hidden>
-            <span class="body-strong">${esc(site.name)}<br>목록에서 삭제할까요?</span>
+            <span class="body-strong">${esc(site.name)}<br>${confirmMsg}</span>
             <div class="card-confirm-actions">
               <button class="btn-ghost" type="button" data-confirm="no">취소</button>
-              <button class="btn-primary btn-danger" type="button" data-confirm="yes">삭제</button>
+              <button class="btn-primary btn-danger" type="button" data-confirm="yes">${confirmBtn}</button>
             </div>
           </div>
         </div>`;
     }
 
     function addCardHTML(slide) {
-      const sub = slide.hero ? '자주 사용 사이트 추가' : `${slide.name}에 사이트 추가`;
+      const title = slide.hero ? '등록하기' : '추가하기';
+      const sub = slide.hero ? '등록된 사이트 중에서 선택' : `${slide.name}에 사이트 추가`;
       return `
-        <div class="card card-add" role="button" tabindex="0" aria-label="${esc(sub)}">
+        <div class="card card-add" role="button" tabindex="0" aria-label="${esc(title)} — ${esc(sub)}">
           <div class="card-add-inner">
             <div class="card-add-icon">${ICON.plus}</div>
-            <span class="body-strong">추가하기</span>
+            <span class="body-strong">${esc(title)}</span>
             <span class="caption">${esc(sub)}</span>
           </div>
         </div>`;
     }
 
     function ringHTML(i) {
-      const items = [...slideSites(i).map(siteCardHTML), addCardHTML(SLIDES[i])];
+      const hero = !!SLIDES[i].hero;
+      const items = [...slideSites(i).map((s) => siteCardHTML(s, hero)), addCardHTML(SLIDES[i])];
       const reps = Math.max(1, Math.ceil(MIN_SLOTS / items.length));
       return Array.from({ length: reps }, () => items).flat().join('');
     }
@@ -817,16 +867,19 @@
         if (e.target.closest('.card-del')) { card.querySelector('.card-confirm').hidden = false; return; }
         const c = e.target.closest('[data-confirm]');
         if (c) {
-          if (c.dataset.confirm === 'yes') deleteSite(card.dataset.cat, card.dataset.url);
-          else card.querySelector('.card-confirm').hidden = true;
+          if (c.dataset.confirm !== 'yes') card.querySelector('.card-confirm').hidden = true;
+          else if (card.dataset.unstar) unstarSite(card.dataset.cat, card.dataset.url);
+          else deleteSite(card.dataset.cat, card.dataset.url);
           return;
         }
-        if (card.classList.contains('card-add')) openAddDialog(r);
+        if (card.classList.contains('card-add')) openAdder(r);
       });
       ring.addEventListener('keydown', (e) => {
-        if ((e.key === 'Enter' || e.key === ' ') && e.target.classList.contains('card-add')) { e.preventDefault(); openAddDialog(r); }
+        if ((e.key === 'Enter' || e.key === ' ') && e.target.classList.contains('card-add')) { e.preventDefault(); openAdder(r); }
       });
     });
+    // 홈 → 기존 사이트 중 선택(자주 사용 등록) / 카테고리 → 새 사이트 입력
+    const openAdder = (r) => (SLIDES[r].hero ? openStarDialog() : openAddDialog(r));
 
     /* ==========================================================
        추가 / 삭제 / 초기화
@@ -838,6 +891,25 @@
       saveSites();
       rebuildRing(0);                            // 홈(★ 모음)
       rebuildRing(slideIndexOfCat(catId));       // 해당 카테고리
+    }
+
+    function unstarSite(catId, url) {
+      const c = CATEGORIES.find((x) => x.id === catId);
+      const s = c && c.sites.find((x) => x.url === url);
+      if (!s) return;
+      s.star = false;
+      saveSites();
+      rebuildRing(0);
+      rebuildRing(slideIndexOfCat(catId));
+    }
+
+    function starSites(urls) {
+      const touched = new Set();
+      CATEGORIES.forEach((c) => c.sites.forEach((s) => { if (urls.includes(s.url)) { s.star = true; touched.add(c.id); } }));
+      saveSites();
+      rebuildRing(0, slideSites(0).findIndex((s) => s.url === urls[0]));   // 첫 선택 카드를 중앙에
+      touched.forEach((id) => rebuildRing(slideIndexOfCat(id)));
+      goTo(0);
     }
 
     function addSite(catId, site) {
@@ -873,6 +945,41 @@
       document.getElementById('fName').focus();
     }
     document.getElementById('addCancel').addEventListener('click', () => addDialog.close());
+
+    // 자주 사용 등록 다이얼로그 — 아직 ★ 가 아닌 기존 사이트를 카테고리별로 나열
+    const starDialog = document.getElementById('starDialog');
+    const starForm = document.getElementById('starForm');
+    const starError = document.getElementById('starError');
+    const pickList = document.getElementById('pickList');
+
+    function openStarDialog() {
+      const groups = CATEGORIES.map((c) => ({ c, sites: c.sites.filter((s) => !s.star) })).filter((g) => g.sites.length);
+      pickList.innerHTML = groups.length ? groups.map((g) => `
+        <div class="pick-group caption-strong">${esc(g.c.name)}</div>
+        ${g.sites.map((s) => `
+          <label class="pick-row">
+            <input type="checkbox" name="url" value="${esc(s.url)}">
+            <span class="pick-logo">
+              <img src="${esc(faviconUrl(s.url))}" alt="" loading="lazy" width="20" height="20" onerror="this.parentNode.classList.add('fallback')">
+              <span class="initial" aria-hidden="true">${esc(initialOf(s.name))}</span>
+            </span>
+            <span class="pick-name"><span class="body-strong">${esc(s.name)}</span><span class="caption">${esc(s.desc)}</span></span>
+          </label>`).join('')}`).join('')
+        : `<p class="pick-empty caption">모든 사이트가 이미 자주 사용으로 등록되어 있습니다.<br>각 섹션의 "추가하기"로 사이트를 먼저 추가해 주세요.</p>`;
+      starError.textContent = '';
+      document.getElementById('starSubmit').disabled = !groups.length;
+      starDialog.showModal();
+      const first = pickList.querySelector('input');
+      if (first) first.focus();
+    }
+    document.getElementById('starCancel').addEventListener('click', () => starDialog.close());
+    starForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const urls = [...pickList.querySelectorAll('input[name="url"]:checked')].map((i) => i.value);
+      if (!urls.length) { starError.textContent = '사이트를 하나 이상 선택해 주세요.'; return; }
+      starDialog.close();
+      starSites(urls);
+    });
 
     addForm.addEventListener('submit', (e) => {
       e.preventDefault();
@@ -945,7 +1052,7 @@
 
     // 키보드: ↑↓ 섹션, ←→ 원판 (다이얼로그가 열려 있으면 무시)
     document.addEventListener('keydown', (e) => {
-      if (addDialog.open) return;
+      if (addDialog.open || starDialog.open) return;
       switch (e.key) {
         case 'ArrowUp':    e.preventDefault(); goTo(cur - 1); break;
         case 'ArrowDown':  e.preventDefault(); goTo(cur + 1); break;
