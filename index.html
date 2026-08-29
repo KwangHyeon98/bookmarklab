@@ -196,7 +196,10 @@
        ========================================================== */
     .ring {
       position: relative; width: 100%; height: var(--card-h);
-      perspective: 1400px; transform-style: preserve-3d;
+      perspective: 1400px;
+      /* ※ preserve-3d 를 쓰면 translateZ 음수인 옆 카드가 ring 평면 뒤로 가서 클릭이 ring 에 먹힌다.
+         flat 으로 두면 원근은 그대로, 히트테스트는 z-index 순서. */
+      transform-style: flat;
       touch-action: none;            /* 손가락 드래그도 JS가 처리 */
       cursor: grab;
     }
@@ -761,16 +764,17 @@
     // 드래그(마우스·터치·펜)로 원판 돌리기 — 손가락을 따라 실시간 회전, 놓으면 가까운 칸에 스냅
     let suppressClickUntil = 0;
     rings.forEach((ring, r) => {
-      let startX = 0, startY = 0, active = false, axis = null, lastDx = 0;
+      let startX = 0, startY = 0, active = false, axis = null, lastDx = 0, pid = null;
 
+      // setPointerCapture 는 쓰지 않는다 — 클릭 타깃이 ring 으로 바뀌어 카드 링크가 안 열릴 수 있음.
+      // 대신 window 에서 move/up 을 받아 원판 밖으로 나가도 드래그가 이어지게 한다.
       ring.addEventListener('pointerdown', (e) => {
         if (e.button !== 0) return;
         startX = e.clientX; startY = e.clientY; lastDx = 0;
-        active = true; axis = null;
-        ring.setPointerCapture(e.pointerId);
+        active = true; axis = null; pid = e.pointerId;
       });
-      ring.addEventListener('pointermove', (e) => {
-        if (!active) return;
+      window.addEventListener('pointermove', (e) => {
+        if (!active || e.pointerId !== pid) return;
         const dx = e.clientX - startX, dy = e.clientY - startY;
         if (!axis) {
           if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;       // 아직 클릭인지 드래그인지 모름
@@ -781,8 +785,8 @@
         lastDx = dx;
         layoutRing(r, -dx / metrics().S);
       });
-      const end = () => {
-        if (!active) return;
+      const end = (e) => {
+        if (!active || (e && e.pointerId !== pid)) return;
         active = false;
         if (axis === 'x') {
           const S = metrics().S;
@@ -795,8 +799,8 @@
         }
         axis = null;
       };
-      ring.addEventListener('pointerup', end);
-      ring.addEventListener('pointercancel', end);
+      window.addEventListener('pointerup', end);
+      window.addEventListener('pointercancel', end);
     });
 
     // 카드 클릭: 흐린 카드 → 회전 / 삭제 버튼 → 확인 / 추가 카드 → 다이얼로그
