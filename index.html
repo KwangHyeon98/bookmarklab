@@ -1,0 +1,997 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BookmarkLab — 나의 유용한 사이트</title>
+  <meta name="description" content="자주 쓰는 사이트를 카테고리별 원판 캐러셀로 넘겨 보는 북마크 페이지.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <style>
+    /* ==========================================================
+       Design tokens — DESIGN-apple.md 를 CSS 변수로 이식
+       ========================================================== */
+    :root {
+      color-scheme: light;
+
+      --primary: #0066cc;
+      --primary-focus: #0071e3;
+      --primary-on-dark: #2997ff;
+      --ink: #1d1d1f;
+      --on-dark: #ffffff;
+      --body-muted: #cccccc;
+      --ink-muted-80: #333333;
+      --ink-muted-48: #7a7a7a;
+      --hairline: #e0e0e0;
+      --canvas: #ffffff;
+      --canvas-parchment: #f5f5f7;
+      --surface-tile-1: #272729;
+      --surface-tile-2: #2a2a2c;
+      --surface-tile-3: #252527;
+      --surface-black: #000000;
+      --chip: rgba(210, 210, 215, 0.64);
+      --on-primary: #ffffff;
+
+      --font-display: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", "Helvetica Neue", "Apple SD Gothic Neo", "Pretendard", "Noto Sans KR", sans-serif;
+      --font-text: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Helvetica Neue", "Apple SD Gothic Neo", "Pretendard", "Noto Sans KR", sans-serif;
+
+      --r-sm: 8px;
+      --r-lg: 18px;
+      --r-pill: 9999px;
+
+      --s-xxs: 4px;
+      --s-xs: 8px;
+      --s-sm: 12px;
+      --s-md: 17px;
+      --s-lg: 24px;
+      --s-xl: 32px;
+      --s-xxl: 48px;
+
+      --gnav-h: 44px;
+      --subnav-h: 52px;
+      --nav-total: 96px;
+
+      /* 캐러셀 치수 (JS가 뷰포트에 맞춰 갱신) */
+      --card-w: 240px;
+      --card-h: 232px;
+
+      --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    /* ==========================================================
+       Base — 페이지 스크롤 없음, 한 화면 고정
+       ========================================================== */
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { height: 100%; overflow: hidden; }
+    body {
+      margin: 0;
+      background: var(--canvas);
+      color: var(--ink);
+      font-family: var(--font-text);
+      font-size: 17px; font-weight: 400; line-height: 1.47; letter-spacing: -0.374px;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      overscroll-behavior: none;
+    }
+    a { color: var(--primary); text-decoration: none; }
+    button { font: inherit; letter-spacing: inherit; cursor: pointer; }
+    img { max-width: 100%; display: block; }
+    ul { list-style: none; margin: 0; padding: 0; }
+    h1, h2, p { margin: 0; }
+    :focus-visible { outline: 2px solid var(--primary-focus); outline-offset: 2px; }
+
+    @media (prefers-reduced-motion: reduce) {
+      * { transition-duration: 0.01ms !important; }
+    }
+
+    /* typography */
+    .hero-display { font-family: var(--font-display); font-size: 56px; font-weight: 600; line-height: 1.07; letter-spacing: -0.28px; }
+    .display-lg   { font-family: var(--font-display); font-size: 40px; font-weight: 600; line-height: 1.1;  letter-spacing: 0; }
+    .tagline      { font-family: var(--font-display); font-size: 21px; font-weight: 600; line-height: 1.19; letter-spacing: 0.231px; }
+    .body-strong  { font-size: 17px; font-weight: 600; line-height: 1.24; letter-spacing: -0.374px; }
+    .caption      { font-size: 14px; font-weight: 400; line-height: 1.43; letter-spacing: -0.224px; }
+    .caption-strong { font-size: 14px; font-weight: 600; line-height: 1.29; letter-spacing: -0.224px; }
+
+    /* ==========================================================
+       1단 Global Nav
+       ========================================================== */
+    .gnav {
+      position: relative; z-index: 50;
+      height: var(--gnav-h);
+      background: var(--surface-black);
+      color: var(--on-dark);
+    }
+    .gnav-inner {
+      max-width: 1440px; height: 100%; margin: 0 auto; padding: 0 var(--s-xl);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    /* 아이콘 로고만 — 섹션 링크 없음 (섹션 이동은 2단 서브 네비가 담당) */
+    .gnav-logo {
+      display: grid; place-items: center;
+      width: 44px; height: 44px; margin-left: -12px;
+      color: var(--on-dark);
+    }
+    .gnav-logo svg { width: 20px; height: 20px; display: block; }
+    .gnav-logo:active { transform: scale(0.95); }
+    .gnav-reset {
+      color: var(--on-dark); opacity: 0.8;
+      font-size: 12px; font-weight: 400; line-height: 1; letter-spacing: -0.12px;
+      padding: 8px 0; transition: opacity 0.2s ease;
+      background: none; border: 0;
+    }
+    .gnav-reset:active { transform: scale(0.95); }
+
+    /* ==========================================================
+       2단 Sub Nav (frosted)
+       ========================================================== */
+    .subnav {
+      position: relative; z-index: 40;
+      height: var(--subnav-h);
+      background: rgba(245, 245, 247, 0.8);
+      -webkit-backdrop-filter: saturate(180%) blur(20px);
+      backdrop-filter: saturate(180%) blur(20px);
+      border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    }
+    .subnav-inner {
+      max-width: 1440px; height: 100%; margin: 0 auto; padding: 0 var(--s-xl);
+      display: flex; align-items: center; gap: var(--s-lg);
+    }
+    .subnav-title { color: var(--ink); white-space: nowrap; }
+    .subnav-links {
+      flex: 1; min-width: 0;
+      display: flex; justify-content: flex-end; align-items: center; gap: 22px;
+      overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch;
+    }
+    .subnav-links::-webkit-scrollbar { display: none; }
+    .subnav-links a {
+      color: var(--ink-muted-80); white-space: nowrap; flex: none;
+      font-size: 14px; font-weight: 400; line-height: 1.29; letter-spacing: -0.224px;
+      transition: color 0.2s ease;
+    }
+    .subnav-links a.is-active { color: var(--primary); }
+    .subnav-links a:active { transform: scale(0.95); }
+
+    /* component.button-primary / button-secondary-pill */
+    .btn-primary, .btn-ghost {
+      display: inline-flex; align-items: center; justify-content: center;
+      border-radius: var(--r-pill); padding: 11px 22px;
+      font-size: 17px; font-weight: 400; line-height: 1; letter-spacing: -0.374px;
+      transition: opacity 0.25s ease, visibility 0.25s ease, transform 0.1s ease;
+    }
+    .btn-primary { background: var(--primary); color: var(--on-primary); border: 0; }
+    .btn-ghost { background: transparent; color: var(--primary); border: 1px solid var(--primary); }
+    .btn-primary:active, .btn-ghost:active { transform: scale(0.95); }
+    .btn-primary.is-hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+    .subnav .btn-primary { padding: 8px 16px; font-size: 14px; letter-spacing: -0.224px; }
+
+    /* ==========================================================
+       Stage — 네비 아래 나머지 화면 전체, 세로 슬라이드
+       ========================================================== */
+    .stage {
+      position: relative;
+      height: calc(100vh - var(--nav-total));
+      height: calc(100dvh - var(--nav-total));
+      overflow: hidden;
+    }
+    .slides { height: 100%; transition: transform 0.75s var(--ease-out); will-change: transform; }
+    .slide { height: 100%; display: flex; flex-direction: column; overflow: hidden; }
+
+    .tile-light     { background: var(--canvas);           color: var(--ink); }
+    .tile-parchment { background: var(--canvas-parchment); color: var(--ink); }
+    .tile-dark      { background: var(--surface-tile-1);   color: var(--on-dark); }
+    .tile-dark-2    { background: var(--surface-tile-2);   color: var(--on-dark); }
+    .tile-dark-3    { background: var(--surface-tile-3);   color: var(--on-dark); }
+
+    .slide-head { flex: none; padding: 100px var(--s-xl) 0; text-align: center; }
+    .slide-body {
+      flex: 1 1 auto; min-height: 0; position: relative;
+      display: flex; align-items: center; padding-bottom: 92px;
+    }
+    /* 첫 레이아웃 시 카드가 날아 들어오는 애니메이션 방지 */
+    .stage.no-anim .card, .stage.no-anim .slides { transition: none !important; }
+
+    /* ==========================================================
+       Ring — 원판형 카드 캐러셀
+       ========================================================== */
+    .ring {
+      position: relative; width: 100%; height: var(--card-h);
+      perspective: 1400px; transform-style: preserve-3d;
+      touch-action: none;            /* 손가락 드래그도 JS가 처리 */
+      cursor: grab;
+    }
+    .ring.dragging { cursor: grabbing; }
+    .ring.dragging .card { transition: none; }   /* 드래그 중에는 손가락을 그대로 따라감 */
+    .ring.dragging .card-main, .ring.dragging .card-add { cursor: grabbing; }
+    .card {
+      position: absolute; left: 50%; top: 50%;
+      width: var(--card-w); height: var(--card-h);
+      background: var(--canvas); color: var(--ink);
+      border: 1px solid var(--hairline); border-radius: var(--r-lg);
+      transform-origin: center center;
+      transition: transform 0.65s var(--ease-out), opacity 0.5s ease, filter 0.5s ease;
+      will-change: transform, opacity, filter;
+      -webkit-user-select: none; user-select: none;
+    }
+    .card.is-far { cursor: pointer; }
+    .card:not(.is-far) { pointer-events: auto; }
+    .card-main:active, .card-add-inner:active { transform: scale(0.98); }
+
+    /* 카드 본문 = 링크 (카드 전체를 덮음) — 선명한 카드는 어디를 눌러도 새 탭으로 이동 */
+    .card-main {
+      display: flex; flex-direction: column; gap: var(--s-xs);
+      width: 100%; height: 100%; padding: var(--s-lg);
+      color: inherit; border-radius: inherit; cursor: pointer;
+      -webkit-user-drag: none;
+    }
+    .card-main:focus-visible { outline: 2px solid var(--primary-focus); outline-offset: 2px; }
+
+    .card-logo {
+      position: relative; flex: none;
+      width: 56px; height: 56px; border-radius: var(--r-sm);
+      background: var(--canvas-parchment);
+      display: grid; place-items: center; overflow: hidden;
+      margin-bottom: var(--s-xxs);
+    }
+    .card-logo img { width: 36px; height: 36px; object-fit: contain; }
+    .card-logo .initial {
+      display: none; width: 36px; height: 36px; border-radius: 50%;
+      background: var(--primary); color: var(--on-primary);
+      font-family: var(--font-display); font-size: 16px; font-weight: 600; line-height: 36px; letter-spacing: 0;
+      text-align: center;
+    }
+    .card-logo.fallback img { display: none; }
+    .card-logo.fallback .initial { display: block; }
+
+    .card-name { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; padding-right: 20px; }
+    .card-badge { color: var(--primary); white-space: nowrap; }
+    .card-badge::before {
+      content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+      background: currentColor; margin-right: 5px; vertical-align: 2px;
+    }
+    .card-desc {
+      color: var(--ink-muted-48);
+      display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    }
+    .card-link { margin-top: auto; color: var(--primary); }
+    .card-link::after { content: " ↗"; }
+
+    /* 삭제 버튼 — 우상단 작은 원형 칩 */
+    .card-del {
+      position: absolute; top: 12px; right: 12px; z-index: 2;
+      width: 28px; height: 28px; border-radius: 50%; border: 0; padding: 0;
+      background: var(--chip); color: var(--ink);
+      display: grid; place-items: center; opacity: 0.55;
+      transition: opacity 0.2s ease, transform 0.1s ease;
+    }
+    .card-del svg { width: 12px; height: 12px; }
+    .card-del:active { transform: scale(0.9); }
+    .card:not(.is-far) .card-del:focus-visible { opacity: 1; }
+
+    /* 삭제 확인 오버레이 */
+    .card-confirm {
+      position: absolute; inset: 0; z-index: 3;
+      border-radius: inherit;
+      background: rgba(255, 255, 255, 0.92);
+      -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--s-md);
+      padding: var(--s-lg); text-align: center; color: var(--ink);
+    }
+    .card-confirm[hidden] { display: none; }
+    .card-confirm-actions { display: flex; gap: var(--s-xs); }
+    .card-confirm .btn-primary, .card-confirm .btn-ghost { padding: 8px 16px; font-size: 14px; letter-spacing: -0.224px; }
+    .btn-danger { background: var(--ink); }
+
+    /* 추가하기 카드 */
+    .card-add {
+      background: transparent;
+      border: 1.5px dashed var(--hairline);
+      cursor: pointer;
+    }
+    .card-add-inner {
+      width: 100%; height: 100%; padding: var(--s-lg);
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--s-sm);
+      text-align: center; color: var(--ink-muted-48);
+    }
+    .card-add-icon {
+      width: 56px; height: 56px; border-radius: 50%;
+      background: var(--canvas-parchment); color: var(--primary);
+      display: grid; place-items: center;
+    }
+    .card-add-icon svg { width: 24px; height: 24px; }
+    .card-add-inner .body-strong { color: var(--ink); }
+    .card-add:focus-visible { outline: 2px solid var(--primary-focus); outline-offset: 2px; }
+
+    /* dark tile card variant */
+    .tile-dark .card, .tile-dark-2 .card, .tile-dark-3 .card {
+      background: rgba(255, 255, 255, 0.06);
+      border-color: rgba(255, 255, 255, 0.14);
+      color: var(--on-dark);
+    }
+    .tile-dark .card-add, .tile-dark-2 .card-add, .tile-dark-3 .card-add { background: transparent; border-color: rgba(255, 255, 255, 0.24); }
+    .tile-dark .card-logo, .tile-dark-2 .card-logo, .tile-dark-3 .card-logo { background: rgba(255, 255, 255, 0.92); }
+    .tile-dark .card-add-icon, .tile-dark-2 .card-add-icon, .tile-dark-3 .card-add-icon { background: rgba(255, 255, 255, 0.1); color: var(--primary-on-dark); }
+    .tile-dark .card-add-inner .body-strong, .tile-dark-2 .card-add-inner .body-strong, .tile-dark-3 .card-add-inner .body-strong { color: var(--on-dark); }
+    .tile-dark .card-add-inner, .tile-dark-2 .card-add-inner, .tile-dark-3 .card-add-inner,
+    .tile-dark .card-desc, .tile-dark-2 .card-desc, .tile-dark-3 .card-desc { color: var(--body-muted); }
+    .tile-dark .card-link, .tile-dark-2 .card-link, .tile-dark-3 .card-link,
+    .tile-dark .card-badge, .tile-dark-2 .card-badge, .tile-dark-3 .card-badge { color: var(--primary-on-dark); }
+    .tile-dark .card-confirm, .tile-dark-2 .card-confirm, .tile-dark-3 .card-confirm { background: rgba(39, 39, 41, 0.92); color: var(--on-dark); }
+    .tile-dark .card-confirm .btn-ghost, .tile-dark-2 .card-confirm .btn-ghost, .tile-dark-3 .card-confirm .btn-ghost { color: var(--primary-on-dark); border-color: var(--primary-on-dark); }
+    .tile-dark .btn-danger, .tile-dark-2 .btn-danger, .tile-dark-3 .btn-danger { background: var(--canvas); color: var(--ink); }
+
+    /* ==========================================================
+       Arrows — component.button-icon-circular (44px, 반투명 칩)
+       ========================================================== */
+    .chip {
+      width: 44px; height: 44px; border-radius: 50%;
+      background: var(--chip); color: var(--ink); border: 0; padding: 0;
+      display: grid; place-items: center;
+      -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+      transition: transform 0.1s ease, opacity 0.25s ease;
+    }
+    .chip svg { width: 18px; height: 18px; display: block; }
+    .chip:active { transform: scale(0.95); }
+    .chip:disabled { opacity: 0.3; cursor: default; }
+    .chip:disabled:active { transform: none; }
+
+    .arrow-x { position: absolute; top: 50%; z-index: 20; transform: translateY(calc(-50% - 46px)); }
+    .arrow-x:active { transform: translateY(calc(-50% - 46px)) scale(0.95); }
+    .arrow-x.left  { left: var(--s-lg); }
+    .arrow-x.right { right: var(--s-lg); }
+
+    /* 상하 이동 클러스터 — 화살표 + 흐린 이전/다음 섹션명 */
+    .vnav {
+      position: absolute; left: 50%; z-index: 30; transform: translateX(-50%);
+      display: flex; flex-direction: column; align-items: center; gap: var(--s-xs);
+      pointer-events: none;
+    }
+    .vnav .chip { pointer-events: auto; }
+    .vnav.top    { top: var(--s-md); }
+    .vnav.bottom { bottom: var(--s-md); flex-direction: column-reverse; }
+    .vnav-hint {
+      color: var(--ink); opacity: 0.4; white-space: nowrap; min-height: 20px;
+      transition: opacity 0.3s ease, color 0.3s ease;
+    }
+    .vnav-hint:empty { opacity: 0; }
+    .stage.is-dark .vnav-hint { color: var(--on-dark); opacity: 0.5; }
+
+    /* ==========================================================
+       추가 다이얼로그 — 흰 시트, 18px 라운드, pill 입력
+       ========================================================== */
+    .sheet {
+      width: min(480px, 92vw);
+      border: 0; border-radius: var(--r-lg); padding: var(--s-xl);
+      background: var(--canvas); color: var(--ink);
+      font-family: var(--font-text);
+    }
+    .sheet::backdrop { background: rgba(0, 0, 0, 0.4); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); }
+    .sheet h2 { margin-bottom: var(--s-xxs); }
+    .sheet .sheet-sub { color: var(--ink-muted-48); margin-bottom: var(--s-lg); }
+    .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: var(--s-md); }
+    .field label { color: var(--ink-muted-80); }
+    .field input, .field select {
+      height: 44px; padding: 12px 20px;
+      font: inherit; letter-spacing: inherit; color: var(--ink);
+      background: var(--canvas); border: 1px solid rgba(0, 0, 0, 0.08); border-radius: var(--r-pill);
+      -webkit-appearance: none; appearance: none;
+    }
+    .field input:focus, .field select:focus { outline: 2px solid var(--primary-focus); outline-offset: 0; border-color: transparent; }
+    .field select {
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231d1d1f' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M6 9l6 6 6-6'/></svg>");
+      background-repeat: no-repeat; background-position: right 16px center; background-size: 16px; padding-right: 44px;
+    }
+    .field-check { flex-direction: row; align-items: center; gap: var(--s-xs); }
+    .field-check input { width: 18px; height: 18px; margin: 0; accent-color: var(--primary); -webkit-appearance: auto; appearance: auto; }
+    .sheet-error { color: #c8271b; min-height: 20px; margin-bottom: var(--s-xs); }
+    .sheet-actions { display: flex; justify-content: flex-end; gap: var(--s-xs); margin-top: var(--s-xs); }
+
+    /* ==========================================================
+       Responsive
+       ========================================================== */
+    @media (max-width: 1068px) {
+      .hero-display { font-size: 40px; line-height: 1.1; }
+      .display-lg { font-size: 34px; }
+    }
+    @media (max-width: 833px) {
+      .gnav-inner, .subnav-inner { padding: 0 var(--s-lg); }
+      .subnav-links { gap: 16px; }
+      .arrow-x.left  { left: var(--s-sm); }
+      .arrow-x.right { right: var(--s-sm); }
+    }
+    @media (max-width: 640px) {
+      .hero-display { font-size: 34px; }
+      .display-lg { font-size: 28px; }
+      .subnav-inner, .gnav-inner { padding: 0 var(--s-md); }
+      .subnav-inner { gap: var(--s-md); }
+      .subnav-title { font-size: 17px; }
+      .subnav-links { justify-content: flex-start; }
+      .subnav .btn-primary { display: none; }   /* 홈 링크로 대체 */
+      .slide-head { padding-top: 96px; }
+      .slide-body { padding-bottom: 88px; }
+      .sheet { padding: var(--s-lg); }
+    }
+    @media (max-height: 560px) {
+      .slide-head { padding-top: 70px; }
+      .slide-body { padding-bottom: 70px; }
+      .hero-display { font-size: 28px; }
+      .display-lg { font-size: 24px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ===== 1단 Global Nav ===== -->
+  <header class="gnav">
+    <div class="gnav-inner">
+      <a class="gnav-logo" href="#home" data-target="home" aria-label="BookmarkLab 홈">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 2h12a2 2 0 0 1 2 2v18l-8-5-8 5V4a2 2 0 0 1 2-2z"/></svg>
+      </a>
+      <button class="gnav-reset" type="button" data-reset>기본 목록으로 초기화</button>
+    </div>
+  </header>
+
+  <!-- ===== 2단 Sub Nav ===== -->
+  <div class="subnav">
+    <div class="subnav-inner">
+      <span class="subnav-title tagline" id="subnavTitle" aria-live="polite">홈</span>
+      <nav class="subnav-links" id="subnavLinks" aria-label="섹션 이동"></nav>
+      <a class="btn-primary is-hidden" id="topBtn" href="#home" data-target="home">맨 위로</a>
+    </div>
+  </div>
+
+  <!-- ===== Stage ===== -->
+  <main class="stage" id="stage">
+    <div class="vnav top">
+      <button class="chip" id="upBtn" type="button" aria-label="이전 섹션">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg>
+      </button>
+      <span class="vnav-hint caption" id="upHint" aria-hidden="true"></span>
+    </div>
+
+    <div class="slides" id="slides"></div>
+
+    <div class="vnav bottom">
+      <button class="chip" id="downBtn" type="button" aria-label="다음 섹션">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+      <span class="vnav-hint caption" id="downHint" aria-hidden="true"></span>
+    </div>
+  </main>
+
+  <!-- ===== 사이트 추가 다이얼로그 ===== -->
+  <dialog class="sheet" id="addDialog" aria-labelledby="addTitle">
+    <form method="dialog" id="addForm" novalidate>
+      <h2 class="tagline" id="addTitle">사이트 추가</h2>
+      <p class="caption sheet-sub">추가한 사이트는 이 브라우저에 저장됩니다.</p>
+
+      <div class="field">
+        <label class="caption" for="fCat">카테고리</label>
+        <select id="fCat" name="cat"></select>
+      </div>
+      <div class="field">
+        <label class="caption" for="fName">사이트명</label>
+        <input id="fName" name="name" type="text" maxlength="40" placeholder="예: 노션" required autocomplete="off">
+      </div>
+      <div class="field">
+        <label class="caption" for="fUrl">URL</label>
+        <input id="fUrl" name="url" type="url" placeholder="https://www.notion.so" required autocomplete="off" inputmode="url">
+      </div>
+      <div class="field">
+        <label class="caption" for="fDesc">한 줄 설명 <span style="opacity:.6">(선택)</span></label>
+        <input id="fDesc" name="desc" type="text" maxlength="60" placeholder="예: 올인원 노트·협업 도구" autocomplete="off">
+      </div>
+      <div class="field field-check">
+        <input id="fStar" name="star" type="checkbox">
+        <label class="caption" for="fStar">자주 사용 — 홈 화면에도 표시</label>
+      </div>
+
+      <p class="caption sheet-error" id="addError" aria-live="polite"></p>
+      <div class="sheet-actions">
+        <button class="btn-ghost" type="button" id="addCancel">취소</button>
+        <button class="btn-primary" type="submit" id="addSubmit">추가</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script>
+    /* ==========================================================
+       기본 사이트 데이터 — 한 줄 추가/삭제로 전체 반영
+       star: true → 홈(자주 사용) 슬라이드에도 노출 + 카테고리 안에서 첫 자리
+       mode: light | parchment | dark | dark-2 | dark-3
+       ※ 사용자가 화면에서 추가/삭제한 내용은 localStorage 에 저장되어 이 기본값 위에 덮어씌워진다.
+       ========================================================== */
+    const DEFAULT_CATEGORIES = [
+      {
+        id: 'search', name: '검색·포털', mode: 'light',
+        sites: [
+          { name: '네이버',     url: 'https://www.naver.com',    desc: '국내 검색·뉴스·쇼핑 포털', star: true },
+          { name: '구글',       url: 'https://www.google.com',   desc: '글로벌 검색의 기준',       star: true },
+          { name: '위키백과',   url: 'https://ko.wikipedia.org', desc: '모두가 만드는 백과사전' },
+          { name: 'DuckDuckGo', url: 'https://duckduckgo.com',   desc: '추적 없는 프라이버시 검색' },
+          { name: 'Bing',       url: 'https://www.bing.com',     desc: 'MS 검색 + Copilot 통합' },
+        ],
+      },
+      {
+        id: 'media', name: '미디어', mode: 'dark',
+        sites: [
+          { name: '유튜브',     url: 'https://www.youtube.com',   desc: '세상 모든 영상', star: true },
+          { name: '넷플릭스',   url: 'https://www.netflix.com',   desc: '스트리밍 오리지널 콘텐츠' },
+          { name: '트위치',     url: 'https://www.twitch.tv',     desc: '라이브 스트리밍' },
+          { name: '스포티파이', url: 'https://open.spotify.com',  desc: '음악 스트리밍' },
+          { name: '디즈니+',    url: 'https://www.disneyplus.com', desc: '디즈니·마블·픽사 스트리밍' },
+        ],
+      },
+      {
+        id: 'dev', name: '개발', mode: 'parchment',
+        sites: [
+          { name: '깃허브',         url: 'https://github.com',            desc: '코드 저장소·협업의 중심', star: true },
+          { name: 'Stack Overflow', url: 'https://stackoverflow.com',     desc: '개발 Q&A' },
+          { name: 'MDN Web Docs',   url: 'https://developer.mozilla.org', desc: '웹 표준 문서의 정석' },
+          { name: 'npm',            url: 'https://www.npmjs.com',         desc: 'JavaScript 패키지 레지스트리' },
+          { name: 'velog',          url: 'https://velog.io',              desc: '국내 개발자 블로그 플랫폼' },
+        ],
+      },
+      {
+        id: 'ai', name: 'AI·ML', mode: 'dark-2',
+        sites: [
+          { name: '허깅페이스',       url: 'https://huggingface.co',            desc: '오픈소스 모델·데이터셋 허브', star: true },
+          { name: 'Kaggle',           url: 'https://www.kaggle.com',            desc: '데이터 사이언스 대회·노트북' },
+          { name: 'arXiv',            url: 'https://arxiv.org',                 desc: '최신 논문 프리프린트' },
+          { name: 'Papers with Code', url: 'https://paperswithcode.com',        desc: '논문 + 구현 코드' },
+          { name: 'Google Colab',     url: 'https://colab.research.google.com', desc: '무료 GPU 노트북' },
+        ],
+      },
+    ];
+
+    /* ==========================================================
+       저장소 — localStorage (실패해도 기본값으로 동작)
+       ========================================================== */
+    const STORE_KEY = 'bookmarklab.sites.v1';
+    const CATEGORIES = DEFAULT_CATEGORIES.map((c) => ({ ...c, sites: c.sites.map((s) => ({ ...s })) }));
+
+    function loadSites() {
+      try {
+        const raw = localStorage.getItem(STORE_KEY);
+        if (!raw) return;
+        const saved = JSON.parse(raw);
+        CATEGORIES.forEach((c) => {
+          const s = saved.find((x) => x.id === c.id);
+          if (s && Array.isArray(s.sites)) c.sites = s.sites.map((x) => ({ name: x.name, url: x.url, desc: x.desc || '', star: !!x.star }));
+        });
+      } catch (e) { /* 저장소 사용 불가 — 기본값 유지 */ }
+    }
+    function saveSites() {
+      try { localStorage.setItem(STORE_KEY, JSON.stringify(CATEGORIES.map((c) => ({ id: c.id, sites: c.sites })))); }
+      catch (e) { /* ignore */ }
+    }
+    loadSites();
+
+    /* ==========================================================
+       슬라이드 구성: 홈(★ 모음) + 카테고리
+       ========================================================== */
+    const sortStarFirst = (sites) => [...sites].sort((a, b) => (b.star ? 1 : 0) - (a.star ? 1 : 0));
+    const SLIDES = [
+      { id: 'home', name: '홈', title: '나의 유용한 사이트', mode: 'light', hero: true },
+      ...CATEGORIES.map((c) => ({ id: c.id, name: c.name, title: c.name, mode: c.mode, catId: c.id })),
+    ];
+    // 슬라이드에 표시할 사이트 (홈 = 모든 카테고리의 ★, 카테고리 = ★ 먼저)
+    function slideSites(i) {
+      const s = SLIDES[i];
+      if (s.hero) return CATEGORIES.flatMap((c) => c.sites.filter((x) => x.star).map((x) => ({ ...x, catId: c.id })));
+      const c = CATEGORIES.find((x) => x.id === s.catId);
+      return sortStarFirst(c.sites).map((x) => ({ ...x, catId: c.id }));
+    }
+
+    /* ==========================================================
+       렌더링
+       ========================================================== */
+    const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const faviconUrl = (url) => { try { return `https://www.google.com/s2/favicons?sz=128&domain=${encodeURIComponent(new URL(url).hostname)}`; } catch (e) { return ''; } };
+    const initialOf = (name) => name.trim().charAt(0).toUpperCase();
+
+    // 원판 슬롯 수: 선명 5 + 양쪽 흐림 1 + 진입 대기 1 = 최소 9. 항목이 적으면 반복해서 원판을 채운다.
+    const MIN_SLOTS = 9;
+
+    const ICON = {
+      left:  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>`,
+      right: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>`,
+      close: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>`,
+      plus:  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>`,
+    };
+
+    function siteCardHTML(site) {
+      const badge = site.star ? `<span class="card-badge caption-strong">자주 사용</span>` : '';
+      return `
+        <div class="card" data-url="${esc(site.url)}" data-cat="${esc(site.catId)}">
+          <a class="card-main" href="${esc(site.url)}" target="_blank" rel="noopener noreferrer" draggable="false" aria-label="${esc(site.name)} — ${esc(site.desc)} (새 탭)">
+            <div class="card-logo">
+              <img src="${esc(faviconUrl(site.url))}" alt="" loading="lazy" width="36" height="36" draggable="false"
+                   onerror="this.parentNode.classList.add('fallback')">
+              <span class="initial" aria-hidden="true">${esc(initialOf(site.name))}</span>
+            </div>
+            <div class="card-name"><span class="body-strong">${esc(site.name)}</span>${badge}</div>
+            <p class="card-desc caption">${esc(site.desc)}</p>
+            <span class="card-link caption">바로가기</span>
+          </a>
+          <button class="card-del" type="button" aria-label="${esc(site.name)} 삭제">${ICON.close}</button>
+          <div class="card-confirm" hidden>
+            <span class="body-strong">${esc(site.name)}<br>목록에서 삭제할까요?</span>
+            <div class="card-confirm-actions">
+              <button class="btn-ghost" type="button" data-confirm="no">취소</button>
+              <button class="btn-primary btn-danger" type="button" data-confirm="yes">삭제</button>
+            </div>
+          </div>
+        </div>`;
+    }
+
+    function addCardHTML(slide) {
+      const sub = slide.hero ? '자주 사용 사이트 추가' : `${slide.name}에 사이트 추가`;
+      return `
+        <div class="card card-add" role="button" tabindex="0" aria-label="${esc(sub)}">
+          <div class="card-add-inner">
+            <div class="card-add-icon">${ICON.plus}</div>
+            <span class="body-strong">추가하기</span>
+            <span class="caption">${esc(sub)}</span>
+          </div>
+        </div>`;
+    }
+
+    function ringHTML(i) {
+      const items = [...slideSites(i).map(siteCardHTML), addCardHTML(SLIDES[i])];
+      const reps = Math.max(1, Math.ceil(MIN_SLOTS / items.length));
+      return Array.from({ length: reps }, () => items).flat().join('');
+    }
+
+    document.getElementById('slides').innerHTML = SLIDES.map((s, i) => {
+      const heading = s.hero
+        ? `<h1 class="hero-display">${esc(s.title)}</h1>`
+        : `<h2 class="display-lg">${esc(s.title)}</h2>`;
+      return `
+        <section class="slide tile-${esc(s.mode)}" id="${esc(s.id)}" data-index="${i}" data-name="${esc(s.name)}" aria-label="${esc(s.name)}">
+          <div class="slide-head">${heading}</div>
+          <div class="slide-body">
+            <button class="chip arrow-x left" type="button" data-rotate="-1" aria-label="이전 카드">${ICON.left}</button>
+            <div class="ring" data-ring="${i}">${ringHTML(i)}</div>
+            <button class="chip arrow-x right" type="button" data-rotate="1" aria-label="다음 카드">${ICON.right}</button>
+          </div>
+        </section>`;
+    }).join('');
+
+    const navLinkHTML = (s) => `<a href="#${esc(s.id)}" data-target="${esc(s.id)}">${esc(s.name)}</a>`;
+    document.getElementById('subnavLinks').innerHTML = SLIDES.map(navLinkHTML).join('');
+    document.getElementById('fCat').innerHTML = CATEGORIES.map((c) => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('');
+
+    /* ==========================================================
+       원판 캐러셀 레이아웃
+       ========================================================== */
+    const stage = document.getElementById('stage');
+    const slidesEl = document.getElementById('slides');
+    const slideEls = [...document.querySelectorAll('.slide')];
+    const rings = [...document.querySelectorAll('.ring')];
+    const ringIdx = rings.map(() => 0);
+
+    // 한 화면에 선명하게 보이는 카드 수: 5 / 3 / 1
+    function visibleCount() {
+      const w = window.innerWidth;
+      if (w >= 1069) return 5;
+      if (w >= 641) return 3;
+      return 1;
+    }
+    function metrics() {
+      const V = visibleCount();
+      const w = window.innerWidth;
+      const divisor = V === 5 ? 6.2 : V === 3 ? 4.2 : 1.6;
+      const S = Math.min(300, Math.floor(w / divisor));   // 카드 중심 간격
+      const gap = V === 1 ? 20 : 16;
+      return { V, S, W: S - gap, h: (V - 1) / 2 };
+    }
+
+    const lerp = (a, b, t) => a + (b - a) * t;
+
+    // frac: 드래그 중 소수 단위 회전량 (0 이면 정지 상태). 거리(a)에 따라
+    // 선명(a≤h) → 흐림(a=h+1) → 숨김(a≥h+2) 세 상태를 연속적으로 보간한다.
+    function layoutRing(r, frac = 0) {
+      const cards = rings[r].children;
+      const M = cards.length;
+      const idx = ringIdx[r] + frac;
+      const { S, h } = metrics();
+
+      for (let i = 0; i < M; i++) {
+        let o = ((i - idx) % M + M) % M;          // 0..M
+        if (o >= M / 2) o -= M;                   // -M/2..M/2  (앞면 중심)
+        const a = Math.abs(o);
+        const sign = o < 0 ? -1 : 1;
+        let x, z, ry, sc, op, blur;
+
+        if (a <= h) {                              // 선명 구간
+          x = o * S; z = -a * 26; ry = -o * 6; sc = 1; op = 1; blur = 0;
+        } else if (a <= h + 1) {                   // 선명 → 흐림 (양 끝 대기 카드)
+          const t = a - h;
+          x = sign * lerp(h * S, (h + 1) * S * 0.94, t);
+          z = lerp(-h * 26, -(h + 1) * 44, t);
+          ry = -sign * lerp(h * 6, (h + 1) * 9, t);
+          sc = lerp(1, 0.9, t); op = lerp(1, 0.5, t); blur = lerp(0, 5, t);
+        } else if (a <= h + 2) {                   // 흐림 → 숨김 (원판 뒤편)
+          const t = a - h - 1;
+          x = sign * lerp((h + 1) * S * 0.94, (h + 2) * S * 0.9, t);
+          z = lerp(-(h + 1) * 44, -(h + 2) * 60, t);
+          ry = -sign * lerp((h + 1) * 9, (h + 2) * 10, t);
+          sc = lerp(0.9, 0.8, t); op = lerp(0.5, 0, t); blur = lerp(5, 8, t);
+        } else {                                   // 완전히 뒤편
+          x = sign * (h + 2) * S * 0.9; z = -(h + 2) * 60; ry = -sign * (h + 2) * 10; sc = 0.8; op = 0; blur = 8;
+        }
+
+        const far = a > h + 0.5;
+        const el = cards[i];
+        el.style.transform = `translate(-50%, -50%) translateX(${x}px) translateZ(${z}px) rotateY(${ry}deg) scale(${sc})`;
+        el.style.opacity = op;
+        el.style.filter = blur > 0.05 ? `blur(${blur.toFixed(2)}px)` : 'none';
+        el.style.zIndex = Math.round(100 - a);
+        el.style.pointerEvents = op < 0.05 ? 'none' : '';
+        el.classList.toggle('is-far', far);
+        el.dataset.offset = Math.round(o);
+        el.setAttribute('aria-hidden', far ? 'true' : 'false');
+        el.querySelectorAll('a, button, [tabindex]').forEach((f) => { f.tabIndex = far ? -1 : 0; });
+        if (el.classList.contains('card-add')) el.tabIndex = far ? -1 : 0;
+      }
+    }
+
+    function layoutAll() {
+      const { W } = metrics();
+      document.documentElement.style.setProperty('--card-w', `${W}px`);
+      rings.forEach((_, r) => layoutRing(r));
+    }
+    function rotate(r, dir) { ringIdx[r] += dir; layoutRing(r); }
+
+    // 원판 다시 그리기 (추가/삭제 후). focusIdx 를 주면 그 항목을 중앙에 둔다.
+    function rebuildRing(r, focusIdx) {
+      rings[r].innerHTML = ringHTML(r);
+      const M = rings[r].children.length;
+      ringIdx[r] = focusIdx != null ? focusIdx : ((ringIdx[r] % M) + M) % M;
+      layoutRing(r);
+    }
+    const slideIndexOfCat = (catId) => SLIDES.findIndex((s) => s.catId === catId);
+
+    // 좌우 화살표
+    document.querySelectorAll('[data-rotate]').forEach((btn) => {
+      btn.addEventListener('click', () => rotate(Number(btn.closest('.slide').dataset.index), Number(btn.dataset.rotate)));
+    });
+
+    // 드래그(마우스·터치·펜)로 원판 돌리기 — 손가락을 따라 실시간 회전, 놓으면 가까운 칸에 스냅
+    let suppressClickUntil = 0;
+    rings.forEach((ring, r) => {
+      let startX = 0, startY = 0, active = false, axis = null, lastDx = 0;
+
+      ring.addEventListener('pointerdown', (e) => {
+        if (e.button !== 0) return;
+        startX = e.clientX; startY = e.clientY; lastDx = 0;
+        active = true; axis = null;
+        ring.setPointerCapture(e.pointerId);
+      });
+      ring.addEventListener('pointermove', (e) => {
+        if (!active) return;
+        const dx = e.clientX - startX, dy = e.clientY - startY;
+        if (!axis) {
+          if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;       // 아직 클릭인지 드래그인지 모름
+          axis = Math.abs(dx) >= Math.abs(dy) ? 'x' : 'y';
+          if (axis === 'x') ring.classList.add('dragging');
+        }
+        if (axis !== 'x') return;                                  // 세로 제스처는 섹션 이동에 맡김
+        lastDx = dx;
+        layoutRing(r, -dx / metrics().S);
+      });
+      const end = () => {
+        if (!active) return;
+        active = false;
+        if (axis === 'x') {
+          const S = metrics().S;
+          let steps = Math.round(-lastDx / S);
+          if (steps === 0 && Math.abs(lastDx) > S * 0.18) steps = lastDx < 0 ? 1 : -1;   // 짧게 튕겨도 한 칸
+          ring.classList.remove('dragging');
+          ringIdx[r] += steps;
+          layoutRing(r);
+          suppressClickUntil = Date.now() + 300;                   // 드래그 직후 클릭(링크 이동) 무시
+        }
+        axis = null;
+      };
+      ring.addEventListener('pointerup', end);
+      ring.addEventListener('pointercancel', end);
+    });
+
+    // 카드 클릭: 흐린 카드 → 회전 / 삭제 버튼 → 확인 / 추가 카드 → 다이얼로그
+    rings.forEach((ring, r) => {
+      ring.addEventListener('click', (e) => {
+        if (Date.now() < suppressClickUntil) { e.preventDefault(); return; }
+        const card = e.target.closest('.card');
+        if (!card) return;
+        if (card.classList.contains('is-far')) {
+          e.preventDefault();
+          rotate(r, Math.sign(Number(card.dataset.offset)));
+          return;
+        }
+        if (e.target.closest('.card-del')) { card.querySelector('.card-confirm').hidden = false; return; }
+        const c = e.target.closest('[data-confirm]');
+        if (c) {
+          if (c.dataset.confirm === 'yes') deleteSite(card.dataset.cat, card.dataset.url);
+          else card.querySelector('.card-confirm').hidden = true;
+          return;
+        }
+        if (card.classList.contains('card-add')) openAddDialog(r);
+      });
+      ring.addEventListener('keydown', (e) => {
+        if ((e.key === 'Enter' || e.key === ' ') && e.target.classList.contains('card-add')) { e.preventDefault(); openAddDialog(r); }
+      });
+    });
+
+    /* ==========================================================
+       추가 / 삭제 / 초기화
+       ========================================================== */
+    function deleteSite(catId, url) {
+      const c = CATEGORIES.find((x) => x.id === catId);
+      if (!c) return;
+      c.sites = c.sites.filter((s) => s.url !== url);
+      saveSites();
+      rebuildRing(0);                            // 홈(★ 모음)
+      rebuildRing(slideIndexOfCat(catId));       // 해당 카테고리
+    }
+
+    function addSite(catId, site) {
+      const c = CATEGORIES.find((x) => x.id === catId);
+      if (!c) return;
+      c.sites.push(site);
+      saveSites();
+      const r = slideIndexOfCat(catId);
+      const pos = slideSites(r).findIndex((s) => s.url === site.url);
+      rebuildRing(r, pos);                       // 새 카드를 중앙에
+      if (site.star) rebuildRing(0, slideSites(0).findIndex((s) => s.url === site.url));
+      goTo(site.star && cur === 0 ? 0 : r);
+    }
+
+    document.querySelectorAll('[data-reset]').forEach((b) => b.addEventListener('click', () => {
+      if (!confirm('추가·삭제한 내용을 모두 지우고 기본 목록으로 되돌릴까요?')) return;
+      try { localStorage.removeItem(STORE_KEY); } catch (e) { /* ignore */ }
+      location.reload();
+    }));
+
+    // 다이얼로그
+    const addDialog = document.getElementById('addDialog');
+    const addForm = document.getElementById('addForm');
+    const addError = document.getElementById('addError');
+
+    function openAddDialog(r) {
+      const s = SLIDES[r];
+      addForm.reset();
+      addError.textContent = '';
+      document.getElementById('fCat').value = s.catId || CATEGORIES[0].id;
+      document.getElementById('fStar').checked = !!s.hero;
+      addDialog.showModal();
+      document.getElementById('fName').focus();
+    }
+    document.getElementById('addCancel').addEventListener('click', () => addDialog.close());
+
+    addForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const name = document.getElementById('fName').value.trim();
+      let url = document.getElementById('fUrl').value.trim();
+      const desc = document.getElementById('fDesc').value.trim();
+      const star = document.getElementById('fStar').checked;
+      const catId = document.getElementById('fCat').value;
+
+      if (!name) { addError.textContent = '사이트명을 입력해 주세요.'; return; }
+      if (!url) { addError.textContent = 'URL을 입력해 주세요.'; return; }
+      if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+      try { new URL(url); } catch (err) { addError.textContent = '올바른 URL 형식이 아닙니다.'; return; }
+      if (CATEGORIES.some((c) => c.sites.some((s) => s.url === url))) { addError.textContent = '이미 등록된 URL입니다.'; return; }
+
+      addDialog.close();
+      addSite(catId, { name, url, desc, star });
+    });
+
+    /* ==========================================================
+       세로 슬라이드 이동
+       ========================================================== */
+    const subnavTitle = document.getElementById('subnavTitle');
+    const topBtn = document.getElementById('topBtn');
+    const upBtn = document.getElementById('upBtn');
+    const downBtn = document.getElementById('downBtn');
+    const upHint = document.getElementById('upHint');
+    const downHint = document.getElementById('downHint');
+    let cur = 0;
+
+    function goTo(i, { updateHash = true } = {}) {
+      cur = Math.max(0, Math.min(SLIDES.length - 1, i));
+      const s = SLIDES[cur];
+      slidesEl.style.transform = `translateY(-${cur * 100}%)`;
+
+      slideEls.forEach((el, k) => {
+        el.classList.toggle('is-active', k === cur);
+        if (k === cur) el.removeAttribute('inert'); else el.setAttribute('inert', '');
+      });
+
+      // 상하 화살표 + 흐린 이전/다음 섹션명
+      const prev = SLIDES[cur - 1], next = SLIDES[cur + 1];
+      upBtn.disabled = !prev;
+      downBtn.disabled = !next;
+      upHint.textContent = prev ? prev.name : '';
+      downHint.textContent = next ? next.name : '';
+      upBtn.setAttribute('aria-label', prev ? `이전 섹션: ${prev.name}` : '이전 섹션 없음');
+      downBtn.setAttribute('aria-label', next ? `다음 섹션: ${next.name}` : '다음 섹션 없음');
+
+      // 네비 동기화
+      stage.classList.toggle('is-dark', s.mode.startsWith('dark'));
+      subnavTitle.textContent = s.name;
+      document.querySelectorAll('[data-target]').forEach((a) => a.classList.toggle('is-active', a.dataset.target === s.id));
+      topBtn.classList.toggle('is-hidden', cur === 0);
+
+      if (updateHash) history.replaceState(null, '', `#${s.id}`);
+    }
+
+    upBtn.addEventListener('click', () => goTo(cur - 1));
+    downBtn.addEventListener('click', () => goTo(cur + 1));
+
+    // 네비 링크 → 슬라이드 이동
+    document.addEventListener('click', (e) => {
+      const a = e.target.closest('[data-target]');
+      if (!a) return;
+      e.preventDefault();
+      const i = SLIDES.findIndex((s) => s.id === a.dataset.target);
+      if (i >= 0) goTo(i);
+    });
+
+    // 키보드: ↑↓ 섹션, ←→ 원판 (다이얼로그가 열려 있으면 무시)
+    document.addEventListener('keydown', (e) => {
+      if (addDialog.open) return;
+      switch (e.key) {
+        case 'ArrowUp':    e.preventDefault(); goTo(cur - 1); break;
+        case 'ArrowDown':  e.preventDefault(); goTo(cur + 1); break;
+        case 'ArrowLeft':  e.preventDefault(); rotate(cur, -1); break;
+        case 'ArrowRight': e.preventDefault(); rotate(cur, 1); break;
+        case 'Home':       e.preventDefault(); goTo(0); break;
+        case 'End':        e.preventDefault(); goTo(SLIDES.length - 1); break;
+      }
+    });
+
+    // 휠: 세로 → 섹션, 가로 → 원판 (연타 방지 잠금)
+    let wheelLock = 0;
+    stage.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const now = Date.now();
+      if (now < wheelLock) return;
+      const ax = Math.abs(e.deltaX), ay = Math.abs(e.deltaY);
+      if (ay > ax && ay > 20) { goTo(cur + (e.deltaY > 0 ? 1 : -1)); wheelLock = now + 900; }
+      else if (ax > ay && ax > 20) { rotate(cur, e.deltaX > 0 ? 1 : -1); wheelLock = now + 500; }
+    }, { passive: false });
+
+    // 터치 스와이프 — 세로: 섹션 이동 / 가로: 원판 바깥에서만 한 칸 회전 (원판 위 가로 드래그는 위 pointer 핸들러가 처리)
+    let tx = 0, ty = 0, tActive = false, tInRing = false;
+    stage.addEventListener('touchstart', (e) => {
+      tx = e.touches[0].clientX; ty = e.touches[0].clientY; tActive = true;
+      tInRing = !!e.target.closest('.ring');
+    }, { passive: true });
+    stage.addEventListener('touchend', (e) => {
+      if (!tActive) return; tActive = false;
+      const dx = e.changedTouches[0].clientX - tx, dy = e.changedTouches[0].clientY - ty;
+      if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 50) goTo(cur + (dy < 0 ? 1 : -1));
+      else if (!tInRing && Math.abs(dx) > 50) rotate(cur, dx < 0 ? 1 : -1);
+    }, { passive: true });
+
+    /* ==========================================================
+       초기화
+       ========================================================== */
+    let resizeTimer;
+    window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(layoutAll, 80); });
+    window.addEventListener('hashchange', () => {
+      const i = SLIDES.findIndex((s) => s.id === location.hash.slice(1));
+      if (i >= 0 && i !== cur) goTo(i, { updateHash: false });
+    });
+
+    stage.classList.add('no-anim');
+    layoutAll();
+    const startIdx = SLIDES.findIndex((s) => s.id === location.hash.slice(1));
+    goTo(startIdx >= 0 ? startIdx : 0, { updateHash: false });
+    void stage.offsetHeight;
+    requestAnimationFrame(() => requestAnimationFrame(() => stage.classList.remove('no-anim')));
+  </script>
+</body>
+</html>

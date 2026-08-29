@@ -1,0 +1,10 @@
+# 기획·디자인 문서 (로컬 전용)
+docs/
+
+# 로컬 도구 설정
+.claude/
+.vercel/
+
+# OS / 에디터
+.DS_Store
+Thumbs.db
